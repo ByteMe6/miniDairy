@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Мини-блог</title>
+    <link rel="stylesheet" href="style.css" />
+
+    <!-- Подключаем Toastify -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+  </head>
+  <body>
+    <div id="container">
+      <div id="postSection">
+        <textarea id="postText" placeholder="Напиши что-то..."></textarea>
+        <button onclick="addPost()">Опубликовать</button>
+      </div>
+
+      <div id="postsContainer"></div>
+
+      <div id="loginForm" class="hidden">
+        <h3>Вход / Регистрация</h3>
+        <input type="email" id="email" placeholder="Email" />
+        <input type="password" id="password" placeholder="Пароль" />
+        <button onclick="register()">Регистрация</button>
+        <button onclick="login()">Вход</button>
+        <button onclick="loginWithGoogle()">Войти через Google</button>
+      </div>
+
+      <button id="logoutButton" class="hidden" onclick="logout()">Выйти</button>
+    </div>
+
+    <div id="modal" class="modal hidden">
+      <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <p id="modal-message"></p>
+        <button onclick="closeModal()">Закрыть</button>
+      </div>
+    </div>
+
+    <div id="confirmModal" class="modal hidden">
+      <div class="modal-content">
+        <span class="close" onclick="closeConfirmModal()">&times;</span>
+        <p id="confirm-message"></p>
+        <button id="confirm-yes" onclick="confirmAction()">Да</button>
+        <button onclick="closeConfirmModal()">Нет</button>
+      </div>
+    </div>
+
+    <div id="editModal" class="modal hidden">
+      <div class="modal-content">
+        <span class="close" onclick="closeEditModal()">&times;</span>
+        <p>Измените текст поста:</p>
+        <textarea id="editText" placeholder="Введите новый текст..."></textarea>
+        <button id="confirm-edit" onclick="confirmEdit()">Сохранить</button>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script src="./js/index.js" type="module"></script>
+  </body>
+</html>
