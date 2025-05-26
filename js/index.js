@@ -37,9 +37,6 @@ const db = getDatabase(app);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
-let editImg = `<svg class="black" vёiewBox="0 0 24 24"><path fill="currentColor" d="M3 17.25V21h3.75l11-11-3.75-3.75-11 11zM14.75 3l3.75 3.75 1.5-1.5-3.75-3.75-1.5 1.5z"/></svg>`;
-
-let deleteImg = `<svg class="black" viewBox="0 0 24 24"><path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>`;
 // 🔥 Показать Toastify
 function showToast(message) {
   Toastify({
@@ -100,89 +97,113 @@ async function addPost() {
     return;
   }
 
-  const postText = document.getElementById("postText").value;
-  if (!postText.trim()) {
-    showToast("Нельзя отправить пустой пост!");
+  const postText = document.getElementById("postText").value.trim();
+  if (!postText) {
+    showToast("Пост не может быть пустым!");
     return;
   }
 
-  const postId = nanoid(); // Генерируем уникальный ID
-  const postRef = ref(db, `posts/${postId}`);
-  await set(postRef, {
-    text: postText,
-    userId: user.uid,
-    timestamp: Date.now(),
-  });
-
-  document.getElementById("postText").value = ""; // Очищаем поле
-  showToast("Пост опубликован!");
-  loadPosts();
-
-  // Удаляем пост через 24 часа
-  setTimeout(() => {
-    remove(postRef)
-      .then(() => {
-        console.log("Пост удален через 24 часа");
-        loadPosts(); // Перезагружаем посты после удаления
-      })
-      .catch((error) => {
-        console.error("Ошибка при удалении поста:", error);
-      });
-  }, 86400000); // 24 часа в миллисекундах
+  try {
+    const newPostRef = push(ref(db, 'posts'));
+    await set(newPostRef, {
+      text: postText,
+      userId: user.uid,
+      timestamp: Date.now(),
+      username: user.displayName || user.email.split('@')[0]
+    });
+    
+    document.getElementById("postText").value = "";
+    showToast("Пост опубликован!");
+    loadPosts();
+  } catch (error) {
+    showToast("Ошибка при публикации поста: " + error.message);
+  }
 }
 
 // 📌 Загрузка постов
 async function loadPosts() {
-  const user = auth.currentUser;
-  if (!user) return;
+  try {
+    const postsContainer = document.getElementById("postsContainer");
+    postsContainer.innerHTML = "";
+    
+    const snapshot = await get(ref(db, 'posts'));
+    const posts = [];
+    
+    snapshot.forEach(post => {
+      const postData = post.val();
+      posts.push({
+        id: post.key,
+        ...postData
+      });
+    });
 
-  const postsContainer = document.getElementById("postsContainer");
-  if (!postsContainer) {
-    console.error("Ошибка: элемент #postsContainer не найден!");
-    return;
+    // Sort posts by timestamp (newest first)
+    posts.sort((a, b) => b.timestamp - a.timestamp);
+
+    posts.forEach(post => {
+      const timestamp = new Date(post.timestamp).toLocaleDateString('ru-RU', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const postElement = document.createElement('div');
+      postElement.className = 'post';
+      postElement.innerHTML = `
+        <div class="post-header">
+          <div class="user-info">
+            <span class="username">${post.username}</span>
+          </div>
+          <span class="timestamp">${timestamp}</span>
+        </div>
+        <div class="post-content">${post.text}</div>
+        <div class="post-actions">
+          <button onclick="editPost('${post.id}', '${post.text}')">✏️</button>
+          <button onclick="showConfirmModal('Удалить этот пост?', () => deletePost('${post.id}'))">🗑️</button>
+        </div>
+      `;
+      postsContainer.appendChild(postElement);
+    });
+  } catch (error) {
+    showToast("Ошибка при загрузке постов: " + error.message);
   }
+}
 
-  postsContainer.innerHTML = ""; // Очистка перед загрузкой
-
-  const postsRef = ref(db, "posts");
-  const snapshot = await get(postsRef);
-
-  const postsArray = [];
-  const currentTime = Date.now(); // Текущее время
-
-  snapshot.forEach((childSnapshot) => {
-    const post = childSnapshot.val();
-    if (post.userId === user.uid) {
-      if (currentTime - post.timestamp > 86400000) {
-        // Удаляем пост, если он старше 24 часов
-        remove(ref(db, `posts/${childSnapshot.key}`));
-      } else {
-        postsArray.push({
-          key: childSnapshot.key,
-          text: post.text,
-          timestamp: post.timestamp,
-        });
-      }
+// 🔍 Search posts
+function searchPosts() {
+  const searchInput = document.getElementById('searchInput');
+  const query = searchInput.value.toLowerCase();
+  const posts = document.querySelectorAll('.post');
+  
+  posts.forEach(post => {
+    const text = post.querySelector('.post-content').textContent.toLowerCase();
+    const username = post.querySelector('.username').textContent.toLowerCase();
+    
+    if (text.includes(query) || username.includes(query)) {
+      post.style.display = 'block';
+    } else {
+      post.style.display = 'none';
     }
   });
-
-  // Сортируем посты по времени создания (по убыванию)
-  postsArray.sort((a, b) => b.timestamp - a.timestamp);
-
-  // Добавляем посты в контейнер
-  postsArray.forEach((post) => {
-    const postElement = document.createElement("div");
-    postElement.className = "post";
-    postElement.innerHTML = `
-                <span>${post.text}</span>
-                <div class="post-buttons">
-                    <button class="edit-btn" onclick="showEditModal('${post.key}', '${post.text}')">${editImg}</button>
-                    <button class="delete-btn" onclick="deletePost('${post.key}')">${deleteImg}</button>
-                </div>
-            `;
-    postsContainer.appendChild(postElement); // Добавляем в конец
-  });
 }
+
+// Global loading state
+let isLoading = false;
+
+// Show loading indicator
+function showLoading(show = true) {
+  isLoading = show;
+  const loadingElements = document.querySelectorAll('.loading');
+  loadingElements.forEach(el => el.style.display = show ? 'block' : 'none');
+}
+
+// Add loading class to buttons
+const buttons = document.querySelectorAll('button');
+buttons.forEach(button => {
+  button.classList.add('loading');
+});
 
 // Функция редактирования поста
 async function editPost(postId, oldText) {
